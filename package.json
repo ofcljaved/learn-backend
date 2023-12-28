@@ -2,6 +2,7 @@
   "name": "learn-backend",
   "version": "1.0.0",
   "description": "A series to enhance backend with chai aur code",
+  "type": "module",
   "main": "dist/index.js",
   "scripts": {
     "start": "node dist/index.js",
