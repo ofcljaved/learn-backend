@@ -41,6 +41,7 @@ const userSchema = new Schema<IUser, IUserModel, IUserMethods>(
     password: {
       type: String,
       required: true,
+      select: false,
     },
     fullname: {
       type: String,
@@ -57,6 +58,7 @@ const userSchema = new Schema<IUser, IUserModel, IUserMethods>(
     watchHistory: [{ type: Schema.Types.ObjectId, ref: 'Video' }],
     refreshToken: {
       type: String,
+      select: false,
     },
   },
   { timestamps: true }

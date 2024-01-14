@@ -19,7 +19,7 @@
       "src"
     ],
     "ext": "ts,js,json",
-    "exec": "ts-node ./src/index.ts"
+    "exec": "ts-node -r dotenv/config  ./src/index.ts"
   },
   "keywords": [
     "backend",
