@@ -1,11 +1,30 @@
 import { Request, Response } from 'express';
-import { asyncHandler } from '../utils/asyncHandler';
-import { ApiError } from '../utils/ApiError';
+import { STATUS_CODES, cookieOptions } from '../constants';
 import { User } from '../models/user.model';
-import { uploadFileToCloudinary } from '../utils/cloudinary';
+import { IUserDocument, TUserFiles } from '../types';
+import { ApiError } from '../utils/ApiError';
 import { ApiResponse } from '../utils/ApiRespone';
-import { STATUS_CODES } from '../constants';
-import { IUserFiles } from '../types';
+import { asyncHandler } from '../utils/asyncHandler';
+import { uploadFileToCloudinary } from '../utils/cloudinary';
+
+type RefreshAndAccessToken = (
+  user: IUserDocument
+) => Promise<{ refreshToken: string; accessToken: string }>;
+
+const generateRefreshAndAccessToken: RefreshAndAccessToken = async user => {
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+
+  console.log(user);
+
+  user.refreshToken = refreshToken;
+  console.log(user);
+
+  const res = await user.save({ validateBeforeSave: false });
+  console.log(res);
+
+  return { refreshToken, accessToken };
+};
 
 const registerUser = asyncHandler(async (req: Request, res: Response) => {
   const { username, email, password, fullname } = req.body;
@@ -21,8 +40,8 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     throw new ApiError(400, 'username or email already exists');
   }
 
-  const avatarLocalPath = (<IUserFiles>req.files)?.avatar?.[0]?.path;
-  const coverImageLocalPath = (<IUserFiles>req.files)?.coverImage?.[0]?.path;
+  const avatarLocalPath = (<TUserFiles>req.files)?.avatar?.[0]?.path;
+  const coverImageLocalPath = (<TUserFiles>req.files)?.coverImage?.[0]?.path;
 
   if (!avatarLocalPath) {
     throw new ApiError(400, 'Avatar is required');
@@ -37,7 +56,10 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
   });
 
   if (!avatar) {
-    throw new ApiError(500, 'Failed to upload Avatar, Try again');
+    throw new ApiError(
+      STATUS_CODES.INTERNAL_SERVER_ERROR,
+      'Failed to upload Avatar, Try again'
+    );
   }
 
   const user = await User.create({
@@ -48,24 +70,58 @@ const registerUser = asyncHandler(async (req: Request, res: Response) => {
     avatar: avatar.url,
     coverImage: coverImage?.url || '',
   });
-  const createdUser = await User.findById(user._id);
-
-  if (!createdUser) {
-    throw new ApiError(
-      STATUS_CODES.INTERNAL_SERVER_ERROR,
-      'Failed to register user, Try again'
-    );
-  }
 
   res
     .status(STATUS_CODES.CREATED)
     .json(
       new ApiResponse(
         STATUS_CODES.CREATED,
-        createdUser,
+        user,
         'User registered successfully'
       )
     );
 });
 
-export { registerUser };
+const loginUser = asyncHandler(async (req: Request, res: Response) => {
+  const { username, email, password } = req.body;
+
+  if (!(username || email) || !password) {
+    throw new ApiError(
+      STATUS_CODES.BAD_REQUEST,
+      'User Credentials are required'
+    );
+  }
+
+  const user = await User.findOne({ $or: [{ username }, { email }] }).select(
+    '+password'
+  );
+  if (!user) {
+    throw new ApiError(STATUS_CODES.NOT_FOUND, "User doesn't exist");
+  }
+  console.log(user.password);
+
+  const validatePassword = await user.isPasswordCorrect(user.password);
+  if (!validatePassword) {
+    throw new ApiError(STATUS_CODES.UNAUTHORIZED, 'Invalid user credentials');
+  }
+
+  const { refreshToken, accessToken } =
+    await generateRefreshAndAccessToken(user);
+
+  res
+    .status(STATUS_CODES.OK)
+    .cookie('accessToken', accessToken, cookieOptions)
+    .cookie('refreshToken', refreshToken, cookieOptions)
+    .json(
+      new ApiResponse(
+        STATUS_CODES.OK,
+        {
+          accessToken,
+          refreshToken,
+        },
+        'Login successfully'
+      )
+    );
+});
+
+export { loginUser, registerUser };

@@ -1,3 +1,5 @@
+import { CookieOptions } from 'express';
+
 export const DB_NAME = 'videotube';
 
 export const MAX_JSON_PAYLOAD_SIZE = '16kb';
@@ -25,3 +27,9 @@ export const STATUS_CODES = {
 } as const;
 
 export type STATUS_CODES_TYPES = typeof STATUS_CODES;
+
+export const cookieOptions: CookieOptions = {
+  httpOnly: true,
+  signed: true,
+  secure: process.env.NODE_ENV === 'development' ? false : true,
+};

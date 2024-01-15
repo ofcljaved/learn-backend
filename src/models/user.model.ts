@@ -1,23 +1,7 @@
-import { Schema, Types, model, Model } from 'mongoose';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-
-interface IUser {
-  username: string;
-  email: string;
-  password: string;
-  fullname: string;
-  avatar: string;
-  coverImage?: string;
-  refreshToken: string;
-  watchHistory: Types.ObjectId[];
-}
-
-interface IUserMethods {
-  isPasswordCorrect: (password: IUser['password']) => Promise<boolean>;
-  generateAccessToken: () => string;
-  generateRefreshToken: () => string;
-}
+import { Model, Schema, model } from 'mongoose';
+import { IUser, IUserMethods } from '../types';
 
 type IUserModel = Model<IUser, object, IUserMethods>;
 
@@ -97,4 +81,4 @@ userSchema.methods.generateRefreshToken = function () {
   );
 };
 
-export const User = model('User', userSchema);
+export const User = model<IUser, IUserModel>('User', userSchema);
