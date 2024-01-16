@@ -1,6 +1,20 @@
 import { UploadApiOptions, UploadApiResponse } from 'cloudinary';
 import { Document, Types } from 'mongoose';
 
+declare module 'express' {
+  interface Request {
+    user?: IUserDocument;
+  }
+}
+
+declare module 'jsonwebtoken' {
+  interface JwtPayload {
+    id: string;
+    email?: string;
+    username?: string;
+  }
+}
+
 export type Folder = 'thumbnail' | 'avatar' | 'cover' | 'videos' | 'post';
 
 export interface CustomUploadApiOptions extends UploadApiOptions {

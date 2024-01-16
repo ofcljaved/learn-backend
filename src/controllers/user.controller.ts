@@ -15,13 +15,9 @@ const generateRefreshAndAccessToken: RefreshAndAccessToken = async user => {
   const accessToken = user.generateAccessToken();
   const refreshToken = user.generateRefreshToken();
 
-  console.log(user);
-
   user.refreshToken = refreshToken;
-  console.log(user);
 
-  const res = await user.save({ validateBeforeSave: false });
-  console.log(res);
+  await user.save({ validateBeforeSave: false });
 
   return { refreshToken, accessToken };
 };
@@ -98,9 +94,8 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
   if (!user) {
     throw new ApiError(STATUS_CODES.NOT_FOUND, "User doesn't exist");
   }
-  console.log(user.password);
 
-  const validatePassword = await user.isPasswordCorrect(user.password);
+  const validatePassword = await user.isPasswordCorrect(password);
   if (!validatePassword) {
     throw new ApiError(STATUS_CODES.UNAUTHORIZED, 'Invalid user credentials');
   }
@@ -116,6 +111,11 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
       new ApiResponse(
         STATUS_CODES.OK,
         {
+          user: {
+            ...user.toObject(),
+            password: undefined,
+            refreshToken: undefined,
+          },
           accessToken,
           refreshToken,
         },
@@ -124,4 +124,20 @@ const loginUser = asyncHandler(async (req: Request, res: Response) => {
     );
 });
 
-export { loginUser, registerUser };
+const logoutUser = asyncHandler(async (req: Request, res: Response) => {
+  await User.findByIdAndUpdate(
+    req?.user?._id,
+    {
+      $unset: { refreshToken: 1 },
+    },
+    { new: true }
+  );
+
+  res
+    .status(STATUS_CODES.OK)
+    .clearCookie('accessToken', cookieOptions)
+    .clearCookie('refreshToken', cookieOptions)
+    .json(new ApiResponse(STATUS_CODES.OK, {}, 'Logout successfully'));
+});
+
+export { loginUser, registerUser, logoutUser };
