@@ -9,7 +9,7 @@ export const verifyToken = asyncHandler(
   async (req: Request, _, next: NextFunction) => {
     try {
       const token: string =
-        req.signedCookies['accessToken'] ||
+        req.signedCookies.accessToken ||
         req.header('Authorization')?.replace('Bearer ', '');
 
       if (!token) {

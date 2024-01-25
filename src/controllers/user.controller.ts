@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { STATUS_CODES, cookieOptions } from '../constants';
 import { User } from '../models/user.model';
 import { IUserDocument, TUserFiles } from '../types';
@@ -140,4 +141,61 @@ const logoutUser = asyncHandler(async (req: Request, res: Response) => {
     .json(new ApiResponse(STATUS_CODES.OK, {}, 'Logout successfully'));
 });
 
-export { loginUser, registerUser, logoutUser };
+const generateSession = asyncHandler(async (req: Request, res: Response) => {
+  const incomingToken: string =
+    req.signedCookies.refreshToken || req.body.refreshToken;
+
+  if (!incomingToken) {
+    throw new ApiError(STATUS_CODES.BAD_REQUEST, 'Refresh token not present');
+  }
+  const decodedPayload = jwt.verify(
+    incomingToken,
+    process.env.REFRESH_TOKEN_SECRET as string
+  );
+
+  const user = await User.findById(
+    typeof decodedPayload !== 'string' && decodedPayload.id
+  ).select('+refreshToken');
+
+  if (!user) {
+    throw new ApiError(STATUS_CODES.UNAUTHORIZED, 'Invalid refresh token');
+  }
+
+  if (incomingToken !== user.refreshToken) {
+    throw new ApiError(
+      STATUS_CODES.UNAUTHORIZED,
+      'Refresh token expired or used'
+    );
+  }
+
+  const { refreshToken, accessToken } =
+    await generateRefreshAndAccessToken(user);
+
+  res
+    .status(STATUS_CODES.OK)
+    .cookie('accessToken', accessToken, cookieOptions)
+    .cookie('refreshToken', refreshToken, cookieOptions)
+    .json(
+      new ApiResponse(
+        STATUS_CODES.OK,
+        {
+          user: {
+            ...user.toObject(),
+            refreshToken: undefined,
+          },
+          accessToken,
+          refreshToken,
+        },
+        'Session refreshed successfully'
+      )
+    );
+});
+
+export { generateSession, loginUser, logoutUser, registerUser };
+
+//TODO
+// changeCurrentPassword
+// getCurrentUser
+// updateAccountDetails
+// updateUserAvatar
+// updateUserCoverImage
